@@ -1,0 +1,13 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: devops-app
+
+logging:
+  level:
+    root: INFO
+    com.jugaad.devops: DEBUG

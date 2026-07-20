@@ -1,0 +1,23 @@
+# Target build outputs
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jenkins & Temporary files
+*.log
+tmp/
+*.tmp

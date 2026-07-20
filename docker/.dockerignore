@@ -1,0 +1,13 @@
+# Docker Build Ignore List
+target/
+*.jar
+*.war
+.git/
+.gitignore
+.idea/
+*.iml
+docs/
+jenkins/
+scripts/
+README.md
+LICENSE
