@@ -35,7 +35,13 @@ pipeline {
             steps {
                 dir('application') {
                     echo "🧪 Executing Maven compilation and JUnit integration tests..."
-                    sh 'mvn clean test -B'
+                    script {
+                        if (isUnix()) {
+                            sh 'mvn clean test -B'
+                        } else {
+                            bat 'mvn clean test -B'
+                        }
+                    }
                 }
             }
         }
@@ -44,7 +50,13 @@ pipeline {
             steps {
                 dir('application') {
                     echo "📦 Packaging Java Spring Boot application into runnable JAR..."
-                    sh 'mvn package -DskipTests -B'
+                    script {
+                        if (isUnix()) {
+                            sh 'mvn package -DskipTests -B'
+                        } else {
+                            bat 'mvn package -DskipTests -B'
+                        }
+                    }
                 }
             }
         }
@@ -52,11 +64,14 @@ pipeline {
         stage('4. Build Docker Container Image') {
             steps {
                 echo "🐳 Building Docker image: ${DOCKER_IMAGE}:latest and ${DOCKER_IMAGE}:${BUILD_NUMBER}..."
-                sh """
-                    docker build -f docker/Dockerfile \
-                        -t ${DOCKER_IMAGE}:latest \
-                        -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-                """
+                script {
+                    def buildCmd = "docker build -f docker/Dockerfile -t ${DOCKER_IMAGE}:latest -t ${DOCKER_IMAGE}:${BUILD_NUMBER} ."
+                    if (isUnix()) {
+                        sh buildCmd
+                    } else {
+                        bat buildCmd
+                    }
+                }
             }
         }
 
@@ -64,12 +79,23 @@ pipeline {
             steps {
                 echo "🔐 Authenticating with Docker Hub..."
                 withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS_ID}", passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                    sh """
-                        echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
-                        docker push ${DOCKER_IMAGE}:latest
-                        docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                        docker logout
-                    """
+                    script {
+                        if (isUnix()) {
+                            sh """
+                                echo "\$DOCKER_PASSWORD" | docker login -u "\$DOCKER_USERNAME" --password-stdin
+                                docker push ${DOCKER_IMAGE}:latest
+                                docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                                docker logout
+                            """
+                        } else {
+                            bat """
+                                echo %DOCKER_PASSWORD% | docker login -u %DOCKER_USERNAME% --password-stdin
+                                docker push ${DOCKER_IMAGE}:latest
+                                docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                                docker logout
+                            """
+                        }
+                    }
                 }
             }
         }
@@ -78,16 +104,19 @@ pipeline {
             steps {
                 echo "🚀 Establishing SSH session to EC2 instance (${EC2_PUBLIC_IP}) and running deployment..."
                 withCredentials([sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY_ID}", keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
-                    sh """
-                        # Copy deployment script to target EC2 instance
-                        scp -o StrictHostKeyChecking=no -i \$SSH_KEY scripts/deploy.sh \$SSH_USER@${EC2_PUBLIC_IP}:/home/\$SSH_USER/deploy.sh
-
-                        # Make script executable and run remote container update
-                        ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${EC2_PUBLIC_IP} "
-                            chmod +x /home/\$SSH_USER/deploy.sh && \
-                            /home/\$SSH_USER/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080
-                        "
-                    """
+                    script {
+                        if (isUnix()) {
+                            sh """
+                                scp -o StrictHostKeyChecking=no -i \$SSH_KEY scripts/deploy.sh \$SSH_USER@${EC2_PUBLIC_IP}:/home/\$SSH_USER/deploy.sh
+                                ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${EC2_PUBLIC_IP} "chmod +x /home/\$SSH_USER/deploy.sh && /home/\$SSH_USER/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080"
+                            """
+                        } else {
+                            bat """
+                                scp -o StrictHostKeyChecking=no -i "%SSH_KEY%" scripts/deploy.sh %SSH_USER%@${EC2_PUBLIC_IP}:/home/%SSH_USER%/deploy.sh
+                                ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@${EC2_PUBLIC_IP} "chmod +x /home/%SSH_USER%/deploy.sh && /home/%SSH_USER%/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080"
+                            """
+                        }
+                    }
                 }
             }
         }
@@ -96,7 +125,13 @@ pipeline {
     post {
         always {
             echo "🧹 Cleaning up local Docker build artifacts..."
-            sh "docker image prune -f"
+            script {
+                if (isUnix()) {
+                    sh "docker image prune -f"
+                } else {
+                    bat "docker image prune -f"
+                }
+            }
         }
         success {
             echo "✅ PIPELINE SUCCESSFUL! Application deployed to http://${EC2_PUBLIC_IP}:8080/health"
