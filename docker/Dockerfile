@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=builder /build/target/devops-app-1.0.0-SNAPSHOT.jar app.jar
 
 # Change ownership to non-root user
-RUN chown -x /app/app.jar && chown -R appuser:appgroup /app
+RUN chown appuser:appgroup /app/app.jar && chown -R appuser:appgroup /app
 
 # Switch to non-root user context
 USER appuser
