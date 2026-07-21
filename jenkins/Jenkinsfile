@@ -126,10 +126,14 @@ pipeline {
         always {
             echo "🧹 Cleaning up local Docker build artifacts..."
             script {
-                if (isUnix()) {
-                    sh "docker image prune -f"
-                } else {
-                    bat "docker image prune -f"
+                try {
+                    if (isUnix()) {
+                        sh "docker image prune -f || true"
+                    } else {
+                        bat "docker image prune -f || exit 0"
+                    }
+                } catch (Exception e) {
+                    echo "Notice: Docker cleanup skipped (${e.getMessage()})"
                 }
             }
         }
