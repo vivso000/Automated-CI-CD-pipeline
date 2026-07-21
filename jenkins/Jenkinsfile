@@ -111,16 +111,19 @@ pipeline {
                                 ssh -o StrictHostKeyChecking=no -i \$SSH_KEY \$SSH_USER@${EC2_PUBLIC_IP} "chmod +x /home/\$SSH_USER/deploy.sh && /home/\$SSH_USER/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080"
                             """
                         } else {
-                            bat """
-                                @echo off
-                                echo [INFO] Fixing Windows SSH Key Permissions for temporary key: "%SSH_KEY%"
-                                icacls "%SSH_KEY%" /inheritance:r /grant:r *S-1-5-18:R /grant:r "%USERNAME%:R"
+                            powershell """
+                                \$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+                                Write-Host "[INFO] Active Jenkins process identity: \$identity"
                                 
-                                echo [INFO] Copying deployment script via SCP...
-                                scp -o StrictHostKeyChecking=no -i "%SSH_KEY%" scripts/deploy.sh %SSH_USER%@${EC2_PUBLIC_IP}:/home/%SSH_USER%/deploy.sh
+                                # Restrict permissions on temporary SSH private key to only Jenkins process owner
+                                icacls.exe "\$env:SSH_KEY" /inheritance:r
+                                icacls.exe "\$env:SSH_KEY" /grant:r "\${identity}:R"
                                 
-                                echo [INFO] Executing remote deployment script via SSH...
-                                ssh -o StrictHostKeyChecking=no -i "%SSH_KEY%" %SSH_USER%@${EC2_PUBLIC_IP} "chmod +x /home/%SSH_USER%/deploy.sh && /home/%SSH_USER%/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080"
+                                Write-Host "[INFO] Copying deployment script via SCP..."
+                                scp -o StrictHostKeyChecking=no -i "\$env:SSH_KEY" scripts/deploy.sh "\$env:SSH_USER@${EC2_PUBLIC_IP}:/home/\$env:SSH_USER/deploy.sh"
+                                
+                                Write-Host "[INFO] Executing remote deployment script via SSH..."
+                                ssh -o StrictHostKeyChecking=no -i "\$env:SSH_KEY" "\$env:SSH_USER@${EC2_PUBLIC_IP}" "chmod +x /home/\$env:SSH_USER/deploy.sh && /home/\$env:SSH_USER/deploy.sh ${DOCKER_IMAGE}:latest ${APP_NAME} 8080 8080"
                             """
                         }
                     }
